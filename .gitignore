@@ -1,0 +1,5 @@
+*.csv
+dist/*
+dist/**/*
+.DS_Store
+

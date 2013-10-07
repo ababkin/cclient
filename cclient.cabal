@@ -1,0 +1,67 @@
+name:                cclient
+version:             0.1.0.0
+-- synopsis:            
+-- description:         
+-- license:             
+license:             AllRightsReserved
+author:              Alex Babkin
+maintainer:          ababkin@gmail.com
+-- copyright:           
+-- category:            
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  hs-source-dirs: src
+  ghc-options:    -O3 -Wall
+  exposed-modules:
+    CClient
+    CClient.CSV
+    CClient.Util
+    CClient.Types
+
+  build-depends:
+      base >= 4 && < 5
+    , mtl
+    , bytestring
+    , cassava
+    , vector
+    , time
+    , old-locale
+    , containers
+
+executable cclient
+  hs-source-dirs: cclient-commandline
+  main-is:        Main.hs
+  other-modules:
+    CClient.CommandLine.Main
+    CClient.CommandLine.Types
+
+  ghc-options:    -O3 -Wall
+  -- -threaded -with-rtsopts=-N1
+  build-depends:
+      base >= 4 && <= 5
+    , bytestring
+    , mtl
+    , vector
+    , cclient
+    , hslogger
+    , directory
+    , cassava
+    , split
+    , containers
+
+-- taken from here: http://stackoverflow.com/questions/13548061/creating-a-full-haskell-stack-with-tests
+test-suite reference
+  hs-source-dirs:       src
+  main-Is:              ReferenceProps.hs
+  type:                 exitcode-stdio-1.0
+  ghc-options:          -Wall
+  build-depends:
+      base >= 4 && <= 5
+    , cclient
+    , test-framework
+    , test-framework-hunit
+    , test-framework-quickcheck2 >= 0.3
+    , HUnit
+    , QuickCheck
