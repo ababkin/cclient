@@ -21,20 +21,20 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Aeson (encode, decode)
 
 -- This requires the HTTP package, which is not bundled with GHC
-import qualified Network.HTTP as N
 
 import CClient.CommandLine.Types
 import CClient.CommandLine.Directive
+import CClient.CommandLine.ResultStats
+import CClient.CommandLine.Worker
 
 main :: IO ()
 main = do
     contents <- BL.getContents
     case decode contents of
       Just directive -> do
-        {- let directive = Directive 4 ["http://google.com", "http://yahoo.com", "http://microsoft.com", "http://somefakyurl.com"] -}
-        let k = dNumWorkers directive
-        let urls = dUrls directive
-        let n = length urls
+        let k     = dNumWorkers directive
+        let url   = dUrl directive
+        let times = dTimes directive
 
         -- count of completed requests
         completedCount <- newTVarIO (0 :: Int)
@@ -45,21 +45,24 @@ main = do
         -- for sending jobs to workers
         jobQueue <- newTChanIO
 
+        -- the accumulated results
+        responseStats <- newTVarIO []
+
         -- the number of workers currently running
         workers <- newTVarIO k
 
         -- one thread reports completed requests to stdout
-        forkIO $ writeCompleted results
+        {- forkIO $ writeCompleted results -}
 
         -- start worker threads
-        forkTimes k workers (worker results jobQueue completedCount)
+        forkTimes k workers (worker responseStats results jobQueue completedCount)
 
-        atomically $ enqueueJobs jobQueue urls
+        atomically $ enqueueJobs jobQueue $ replicate times url
 
         -- enqueue "please finish" messages
         atomically $ replicateM_ k (writeTChan jobQueue Done)
 
-        waitFor workers
+        finalize workers responseStats
 
         numCompleted <- atomically $ readTVar completedCount
 
@@ -75,40 +78,27 @@ main = do
 forkTimes :: Int -> TVar Int -> IO () -> IO ()
 forkTimes k liveWorkers act =
   replicateM_ k . forkIO $
-    act
-    `finally`
-    (atomically $ modifyTVar_ liveWorkers (subtract 1))
+    act `finally` (finalizeWorker liveWorkers)
 
-modifyTVar_ :: TVar a -> (a -> a) -> STM ()
-modifyTVar_ tv f = readTVar tv >>= writeTVar tv . f
+finalizeWorker :: TVar Int -> IO ()
+finalizeWorker liveWorkers = atomically $ modifyTVar_ liveWorkers (subtract 1)
 
-writeCompleted :: TChan String -> IO ()
-writeCompleted results =
-  forever $
-    atomically (readTChan results) >>= putStrLn >> hFlush stdout
+{- writeCompleted :: TChan String -> IO () -}
+{- writeCompleted results = -}
+  {- forever $ -}
+    {- atomically (readTChan results) >>= putStrLn >> hFlush stdout -}
 
-waitFor :: TVar Int -> IO ()
-waitFor liveWorkers = atomically $ do
-  count <- readTVar liveWorkers
-  check (count == 0)
+finalize :: TVar Int -> TVar [ResponseType] -> IO ()
+finalize liveWorkers responseTypes = 
+    (BL.putStr . encode) =<< (atomically $ waitFor liveWorkers >> readTVar responseTypes)
+  where
+    waitFor :: TVar Int -> STM ()
+    waitFor liveWorkers = do
+      count <- readTVar liveWorkers
+      check (count == 0)
 
 enqueueJobs :: TChan Task -> [Url] -> STM ()
 enqueueJobs jobQueue = mapM_ (writeTChan jobQueue . Get)
 
-worker :: TChan String -> TChan Task -> TVar Int -> IO ()
-worker results jobQueue completedCount = loop
-  where
-    -- Consume jobs until we are told to exit.
-    loop = do
-        job <- atomically $ readTChan jobQueue
-        case job of
-            Done  -> return ()
-            Get url -> get (BL.unpack url) >> loop
 
-    get url = do
-        body <- N.getResponseBody =<< N.simpleHTTP (N.getRequest url)
-        report $ "Done: " ++ url ++ ": " ++ body
-      where
-        report s = atomically $ do
-                    modifyTVar_ completedCount (+1)
-                    writeTChan results s
+
