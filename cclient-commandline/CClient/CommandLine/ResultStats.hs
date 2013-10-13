@@ -3,6 +3,7 @@ module CClient.CommandLine.ResultStats where
 
 import Data.Aeson 
 import qualified Data.ByteString.Char8 as BS
+import Data.Time.Clock
 
 import CClient.CommandLine.Types
 import CClient.CommandLine.Response
@@ -21,10 +22,12 @@ instance ToJSON ResultStats where
 data ResponseType = ResponseType{
     rtResponse  :: Response
   , rtCount     :: Int
+  , rtTime      :: DiffTime 
   } deriving (Show, Eq)
 
 instance ToJSON ResponseType where
-  toJSON (ResponseType response count) = 
+  toJSON (ResponseType response count time) = 
     object  [ "response"  .= response
             , "count"     .= count
+            , "time"      .= (show time)
             ]

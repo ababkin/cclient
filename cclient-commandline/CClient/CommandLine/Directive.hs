@@ -23,6 +23,5 @@ instance FromJSON Directive where
     <*> (v .:   "num_requests")
     <*> (v .:?  "click_probability")
 
--- {"num_workers": 4, "urls": ["http://google.com"], "num_requests": 2}
 -- {"num_workers": 8, "url": "http://localhost:5000/zones/6M-9hJJpyab5ObGOjWVtEw", "num_requests": 1000}
 
