@@ -13,12 +13,12 @@ cabal-version:       >=1.8
 
 library
   hs-source-dirs: src
-  ghc-options:    -O3 -Wall
   exposed-modules:
     CClient
     CClient.Util
     CClient.Types
 
+  ghc-options:    -O3 -Wall -threaded
   build-depends:
       base >= 4 && < 5
     , mtl
@@ -28,11 +28,12 @@ library
 executable cclient
   hs-source-dirs: cclient-commandline
   main-is:        Main.hs
-  other-modules:
-    CClient.CommandLine.Main
-    CClient.CommandLine.Types
+  -- exposed-modules:
+    -- CClient.CommandLine.Main
+    -- CClient.CommandLine.Types
+    -- CClient.CommandLine.Worker
 
-  ghc-options:    -O3 -Wall
+  ghc-options:    -O3 -Wall -threaded
   -- -threaded -with-rtsopts=-N1
   build-depends:
       base >= 4 && <= 5

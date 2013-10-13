@@ -64,16 +64,11 @@ main = do
 
         finalize workers responseStats
 
-        numCompleted <- atomically $ readTVar completedCount
+        {- numCompleted <- atomically $ readTVar completedCount -}
 
-        printf fmt numCompleted
-                   {- (linksFound stats) -}
-                   {- (S.size (linksSeen stats)) -}
-                   {- n -}
       Nothing -> do
         putStrLn $ "Cannot parse directive: " ++ (BL.unpack contents)
-  where
-    fmt   = "Hit %d urls.\n"
+
 
 forkTimes :: Int -> TVar Int -> IO () -> IO ()
 forkTimes k liveWorkers act =
