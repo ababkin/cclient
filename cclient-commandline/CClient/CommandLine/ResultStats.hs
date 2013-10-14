@@ -9,25 +9,27 @@ import CClient.CommandLine.Types
 import CClient.CommandLine.Response
 
 data ResultStats = ResultStats{
-    rUrl            :: Url
-  , rResponseTypes  :: [ResponseType]
+    rsUrl             :: Url
+  , rsResponseTypes   :: [ResponseType]
+  , rsTotalTime       :: Double
   } deriving (Show, Eq)
 
 instance ToJSON ResultStats where
-  toJSON (ResultStats url responseTypes) = 
+  toJSON (ResultStats url responseTypes totalTime) = 
     object  [ "url"           .= url
             , "responseTypes" .= responseTypes
+            , "totalTime"     .= totalTime
             ]
 
 data ResponseType = ResponseType{
     rtResponse  :: Response
   , rtCount     :: Int
-  , rtTime      :: DiffTime 
+  , rtTime      :: Double 
   } deriving (Show, Eq)
 
 instance ToJSON ResponseType where
   toJSON (ResponseType response count time) = 
     object  [ "response"  .= response
             , "count"     .= count
-            , "time"      .= (show time)
+            , "time"      .= time
             ]

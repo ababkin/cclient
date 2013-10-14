@@ -19,6 +19,7 @@ import Text.Printf (printf)
 import qualified Data.ByteString.Lazy.Char8 as BL
 {- import qualified Data.Set as S -}
 import Data.Aeson (encode, decode)
+import Data.Time.Clock
 
 -- This requires the HTTP package, which is not bundled with GHC
 
@@ -54,6 +55,8 @@ main = do
         -- one thread reports completed requests to stdout
         {- forkIO $ writeCompleted results -}
 
+        beforeTimeTotal <- getCurrentTime
+
         -- start worker threads
         forkTimes k workers (worker responseStats results jobQueue completedCount)
 
@@ -62,7 +65,9 @@ main = do
         -- enqueue "please finish" messages
         atomically $ replicateM_ k (writeTChan jobQueue Done)
 
-        finalize workers responseStats
+        rts <- finalize workers responseStats
+        afterTimeTotal <- getCurrentTime
+        BL.putStr $ encode $ ResultStats url rts (realToFrac $ diffUTCTime afterTimeTotal beforeTimeTotal)
 
         {- numCompleted <- atomically $ readTVar completedCount -}
 
@@ -83,9 +88,8 @@ finalizeWorker liveWorkers = atomically $ modifyTVar_ liveWorkers (subtract 1)
   {- forever $ -}
     {- atomically (readTChan results) >>= putStrLn >> hFlush stdout -}
 
-finalize :: TVar Int -> TVar [ResponseType] -> IO ()
-finalize liveWorkers responseTypes = 
-    (BL.putStr . encode) =<< (atomically $ waitFor liveWorkers >> readTVar responseTypes)
+finalize :: TVar Int -> TVar [ResponseType] -> IO [ResponseType]
+finalize liveWorkers responseTypes = atomically $ waitFor liveWorkers >> readTVar responseTypes
   where
     waitFor :: TVar Int -> STM ()
     waitFor liveWorkers = do
