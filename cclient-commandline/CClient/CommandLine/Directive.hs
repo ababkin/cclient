@@ -21,7 +21,8 @@ instance FromJSON Directive where
         (v .:   "num_workers")
     <*> (v .:   "url")
     <*> (v .:   "num_requests")
-    <*> (v .:?  "click_probability")
+    <*> (v .:?  "click_prob")
 
--- {"num_workers": 8, "url": "http://localhost:5000/zones/cGXqt9j9fHdTdM6IpjbOpw", "num_requests": 1000}
+-- {"num_workers": 8, "url": "http://localhost:5000/zones/6AIiO25vKQq-Z3fBN-1XyQ", "num_requests": 10}
+-- {"num_workers": 8, "url": "http://localhost:5000/zones/wp2dChcoP0Ab14PQhsI3Gw", "num_requests": 10, "click_prob": 0.1}
 

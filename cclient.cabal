@@ -53,6 +53,7 @@ executable cclient
     , aeson
     , regex-posix
     , time
+    , random
 
 -- taken from here: http://stackoverflow.com/questions/13548061/creating-a-full-haskell-stack-with-tests
 test-suite reference

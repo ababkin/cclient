@@ -20,6 +20,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 {- import qualified Data.Set as S -}
 import Data.Aeson (encode, decode)
 import Data.Time.Clock
+import Data.Maybe
 
 -- This requires the HTTP package, which is not bundled with GHC
 
@@ -36,6 +37,7 @@ main = do
         let k     = dNumWorkers directive
         let url   = dUrl directive
         let times = dTimes directive
+        let click_prob = fromMaybe 0.0 $ dClickProb directive
 
         -- count of completed requests
         completedCount <- newTVarIO (0 :: Int)
@@ -60,7 +62,7 @@ main = do
         -- start worker threads
         forkTimes k workers (worker responseStats results jobQueue completedCount)
 
-        atomically $ enqueueJobs jobQueue $ replicate times url
+        atomically $ enqueueJobs jobQueue $ replicate times $ Get url click_prob
 
         -- enqueue "please finish" messages
         atomically $ replicateM_ k (writeTChan jobQueue Done)
@@ -96,8 +98,8 @@ finalize liveWorkers responseTypes = atomically $ waitFor liveWorkers >> readTVa
       count <- readTVar liveWorkers
       check (count == 0)
 
-enqueueJobs :: TChan Task -> [Url] -> STM ()
-enqueueJobs jobQueue = mapM_ (writeTChan jobQueue . Get)
+enqueueJobs :: TChan Task -> [Task] -> STM ()
+enqueueJobs jobQueue = mapM_ (writeTChan jobQueue)
 
 
 

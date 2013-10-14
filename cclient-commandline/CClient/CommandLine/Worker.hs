@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, DoAndIfThenElse #-}
 module CClient.CommandLine.Worker where
 
 import Control.Concurrent.STM
@@ -10,6 +10,7 @@ import Text.Regex.Posix
 import Data.Aeson (encode, decode)
 import Data.List
 import Data.Time.Clock
+import System.Random
 
 import CClient.CommandLine.Types
 import CClient.CommandLine.Response
@@ -18,24 +19,27 @@ import CClient.CommandLine.ResultStats
 worker :: TVar [ResponseType] -> TChan String -> TChan Task -> TVar Int -> IO ()
 worker responseTypes results jobQueue completedCount = loop
   where
+    loop :: IO ()
     loop = do
         job <- atomically $ readTChan jobQueue
         case job of
             Done  -> return ()
-            Get url -> get (BS.unpack url) >> loop
+            Get url clickProb -> get url clickProb >> loop
 
-    get url = do
+    get :: Url -> Probability -> IO ()
+    get url clickProb = do
         beforeTime <- getCurrentTime
-        result <- N.simpleHTTP (N.getRequest url)
+        result <- N.simpleHTTP (N.getRequest (BS.unpack url))
         json <- fmap stripJsonP $ N.getResponseBody result
         case decode $ BL.fromChunks [(BS.pack json)] of
           Just (response :: Response) -> do
             afterTime <- getCurrentTime
             updateResponseTypes response (beforeTime, afterTime)
-            click $ rLink response
-            report $ "Done: url: " ++ url ++ " , json: " ++ json
+            click (rLink response) clickProb
+            {- report $ "Done: url: " ++ url ++ " , json: " ++ json -}
           Nothing ->
-            report $ "Error: could not parse json, url: " ++ url ++ " , json: " ++ json
+            {- report $ "Error: could not parse json, url: " ++ url ++ " , json: " ++ json -}
+            return ()
 
       where
         updateResponseTypes :: Response -> (UTCTime, UTCTime) -> IO ()
@@ -49,21 +53,20 @@ worker responseTypes results jobQueue completedCount = loop
             let timeDelta = realToFrac $ diffUTCTime afterTime beforeTime
             writeTVar responseTypes $ (ResponseType response (oldCount+1) (oldTime+timeDelta)):not_matched
 
-        click :: Maybe Url -> IO ()
-        click maybeLink | Nothing   <- maybeLink = return ()
-                        | Just link <- maybeLink = do
-
-                          (_, result) <- Network.Browser.browse $ do
-                                        setOutHandler (\s -> return ())
-                                        setAllowRedirects True -- handle HTTP redirects
-                                        request $ N.getRequest $ BS.unpack link
-                          {- return (take 100 (rspBody rsp)) -}
-
-                          {- result <- N.simpleHTTP (N.getRequest url) -}
-                          let x = result `seq` result
-                          return ()
-                          
-
+        click :: Maybe Url -> Probability -> IO ()
+        click maybeLink clickProb | Nothing   <- maybeLink = return ()
+                                  | Just link <- maybeLink = do
+                                    rand <- randomIO
+                                    if (rand < clickProb)
+                                    then do
+                                      (_, result) <- Network.Browser.browse $ do
+                                                      setOutHandler (\s -> return ())
+                                                      setAllowRedirects True -- handle HTTP redirects
+                                                      request $ N.getRequest $ BS.unpack link
+                                      let x = result `seq` result -- force evaluation of result
+                                      return ()
+                                    else
+                                      return()
           
         report s = atomically $ do
                     modifyTVar_ completedCount (+1)
