@@ -1,20 +1,21 @@
-{-# LANGUAGE ScopedTypeVariables, DoAndIfThenElse #-}
+{-# LANGUAGE DoAndIfThenElse     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module CClient.CommandLine.Worker where
 
-import Control.Concurrent.STM
-import qualified Network.HTTP as N
-import Network.Browser
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy as BL
-import Text.Regex.Posix
-import Data.Aeson (encode, decode)
-import Data.List
-import Data.Time.Clock
-import System.Random
+import           Control.Concurrent.STM
+import           Data.Aeson                      (decode, encode)
+import qualified Data.ByteString.Char8           as BS
+import qualified Data.ByteString.Lazy            as BL
+import           Data.List
+import           Data.Time.Clock
+import           Network.Browser
+import qualified Network.HTTP                    as N
+import           System.Random
+import           Text.Regex.Posix
 
-import CClient.CommandLine.Types
-import CClient.CommandLine.Response
-import CClient.CommandLine.ResultStats
+import           CClient.CommandLine.Response
+import           CClient.CommandLine.ResultStats
+import           CClient.CommandLine.Types
 
 worker :: TVar [ResponseType] -> TChan String -> TChan Task -> TVar Int -> IO ()
 worker responseTypes results jobQueue completedCount = loop
@@ -29,7 +30,7 @@ worker responseTypes results jobQueue completedCount = loop
     get :: Url -> Probability -> IO ()
     get url clickProb = do
         beforeTime <- getCurrentTime
-        result <- N.simpleHTTP (N.getRequest (BS.unpack url))
+        result <- N.simpleHTTP (N.getRequest url)
         json <- fmap stripJsonP $ N.getResponseBody result
         case decode $ BL.fromChunks [(BS.pack json)] of
           Just (response :: Response) -> do
@@ -62,12 +63,12 @@ worker responseTypes results jobQueue completedCount = loop
                                       (_, result) <- Network.Browser.browse $ do
                                                       setOutHandler (\s -> return ())
                                                       setAllowRedirects True -- handle HTTP redirects
-                                                      request $ N.getRequest $ BS.unpack link
+                                                      request $ N.getRequest link
                                       let x = result `seq` result -- force evaluation of result
                                       return ()
                                     else
                                       return()
-          
+
         report s = atomically $ do
                     modifyTVar_ completedCount (+1)
                     writeTChan results s
